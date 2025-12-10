@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="de">
+<html lang="en">
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
@@ -19,7 +19,7 @@
         overflow: hidden;
     }
 
-    /* Linke Sidebar */
+    /* Left Sidebar */
     #sidebar {
         width: 230px;
         padding: 20px;
@@ -44,7 +44,7 @@
         line-height: 1.5;
     }
 
-    /* Rechte Leaderboard-Seite */
+    /* Right Leaderboard */
     #leaderboard {
         width: 230px;
         padding: 20px;
@@ -69,7 +69,7 @@
         line-height: 1.6;
     }
 
-    /* Spielfeld */
+    /* Canvas */
     canvas {
         background: linear-gradient(#0f0f0f, #0a0a0a);
         border: 3px solid #333;
@@ -107,7 +107,7 @@
         color: #ccc;
     }
 
-    /* Start- und Game-Over-Screens */
+    /* Start + Game Over Screens */
     #startScreen, #gameOverScreen {
         position: absolute;
         top: 35%;
@@ -140,15 +140,15 @@
         box-shadow: 0 0 15px #45a049;
     }
 
-    /* Username-Modal */
+    /* Username Modal */
     #usernameModal {
         position: fixed;
         inset: 0;
         background: rgba(0, 0, 0, 0.7);
-        display: none; /* wird automatisch aktiviert */
+        display: none;
         align-items: center;
         justify-content: center;
-        z-index: 9999; /* FIX: blockiert Start nicht mehr */
+        z-index: 9999;
     }
 
     #usernameBox {
@@ -187,60 +187,58 @@
 </head>
 <body>
 
-<!-- Linke Sidebar -->
+<!-- Left Sidebar -->
 <div id="sidebar">
     <h3>How to Play</h3>
     <ul>
-        <li>Maus: Links/Rechts bewegen</li>
-        <li>← / A: Links</li>
-        <li>→ / D: Rechts</li>
-        <li>R oder Leertaste: Neustart</li>
+        <li>Mouse: Move left/right</li>
+        <li>← / A: Move left</li>
+        <li>→ / D: Move right</li>
+        <li>R or Space: Restart</li>
     </ul>
+    <p>Dodge the red blocks and survive as long as possible. Collect powerups to help you.</p>
 </div>
 
 <!-- HUD -->
 <div id="ui">Score: 0 | High Score: 0 | Deaths: 0 | Shields: 0</div>
 <div id="powerupBar"></div>
 
-<!-- Startscreen -->
+<!-- Start Screen -->
 <div id="startScreen">
     <div>DODGE THE BLOCKS</div>
-    <button onclick="startGame()">Start</button>
+    <button id="startButton">Start</button>
 </div>
 
-<!-- Game Over -->
+<!-- Game Over Screen -->
 <div id="gameOverScreen" style="display:none;">
     <div>GAME OVER</div>
-    <button onclick="restartGame()">Restart</button>
+    <button id="restartButton">Restart</button>
 </div>
 
-<!-- Spielfeld -->
+<!-- Canvas -->
 <canvas id="game" width="400" height="600"></canvas>
 
-<!-- Leaderboard rechts -->
+<!-- Right Leaderboard -->
 <div id="leaderboard">
-    <h3>Leaderboard</h3>
+    <h3>Global Leaderboard</h3>
     <ol id="leaderboardList">
-        <li>Lade Scores...</li>
+        <li>Loading scores...</li>
     </ol>
 </div>
 
-<!-- Username-Modal -->
+<!-- Username Modal -->
 <div id="usernameModal">
     <div id="usernameBox">
-        <h2>Benutzername wählen</h2>
-        <input id="usernameInput" maxlength="16" placeholder="Username eingeben" />
+        <h2>Choose a username</h2>
+        <input id="usernameInput" maxlength="16" placeholder="Enter username" />
         <div id="usernameWarning">
-            Du kannst deinen Namen nur einmal wählen. Er kann später nicht geändert werden.
+            You can only choose your username once. It cannot be changed later.
         </div>
-        <button id="usernameSubmit">Bestätigen</button>
+        <button id="usernameSubmit">Confirm</button>
     </div>
 </div>
 
-<!-- Firebase + Game Script -->
 <script type="module">
-
-/* ✅ Firebase Imports */
 import { initializeApp } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-app.js";
 import {
   getDatabase,
@@ -252,7 +250,7 @@ import {
   limitToLast
 } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-database.js";
 
-/* ✅ Deine Firebase Config */
+/* Firebase config (europe-west1) */
 const firebaseConfig = {
   apiKey: "AIzaSyBJU18Mb0PJuvEEElrDszbe9zQWqy27Rlo",
   authDomain: "dodge-the-blocks-aa595.firebaseapp.com",
@@ -266,106 +264,59 @@ const firebaseConfig = {
 const app = initializeApp(firebaseConfig);
 const db = getDatabase(app);
 
-/* ✅ Variablen */
-let username = localStorage.getItem("username") || null;
-let player, blocks, powerups;
-let score, highScore, deathCount, gameOver, gameRunning, difficulty;
-let slowMoActive, slowMoTimer;
-let shrinkActive, shrinkTimer;
-let shieldCount;
-let lastTime = 0;
-
-highScore = Number(localStorage.getItem("highscore") || 0);
-deathCount = Number(localStorage.getItem("deathCount") || 0);
-
-/* ✅ Username erzwingen */
-function ensureUsername() {
-    if (!username) {
-        usernameModal.style.display = "flex";
-
-        usernameSubmit.onclick = () => {
-            const value = usernameInput.value.trim();
-            if (!value) return;
-            username = value;
-            localStorage.setItem("username", username);
-            usernameModal.style.display = "none";
-        };
-    }
-}
-
-<!-- ====== TEIL 2 / 3 — GAMEPLAY CODE ====== -->
-
-<script type="module">
-
-/* ✅ Firebase Imports */
-import { initializeApp } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-app.js";
-import {
-  getDatabase,
-  ref,
-  set,
-  get,
-  query,
-  orderByChild,
-  limitToLast
-} from "https://www.gstatic.com/firebasejs/9.23.0/firebase-database.js";
-
-/* ✅ Deine Firebase Config */
-const firebaseConfig = {
-  apiKey: "AIzaSyBJU18Mb0PJuvEEElrDszbe9zQWqy27Rlo",
-  authDomain: "dodge-the-blocks-aa595.firebaseapp.com",
-  databaseURL: "https://dodge-the-blocks-aa595-default-rtdb.europe-west1.firebasedatabase.app/",
-  projectId: "dodge-the-blocks-aa595",
-  storageBucket: "dodge-the-blocks-aa595.firebasestorage.app",
-  messagingSenderId: "70945038524",
-  appId: "1:70945038524:web:ab132d3e63f394787530b9"
-};
-
-const app = initializeApp(firebaseConfig);
-const db = getDatabase(app);
-
-/* ✅ Variablen */
-let username = localStorage.getItem("username") || null;
-
+/* DOM elements */
 const canvas = document.getElementById("game");
 const ctx = canvas.getContext("2d");
-
 const ui = document.getElementById("ui");
 const powerupBar = document.getElementById("powerupBar");
 const startScreen = document.getElementById("startScreen");
+const startButton = document.getElementById("startButton");
 const gameOverScreen = document.getElementById("gameOverScreen");
+const restartButton = document.getElementById("restartButton");
 const leaderboardList = document.getElementById("leaderboardList");
 
 const usernameModal = document.getElementById("usernameModal");
 const usernameInput = document.getElementById("usernameInput");
 const usernameSubmit = document.getElementById("usernameSubmit");
 
+/* Game state */
+let username = localStorage.getItem("username") || null;
+let firebaseHighScore = 0;
+
 let player, blocks, powerups;
-let score, highScore, deathCount, gameOver, gameRunning, difficulty;
+let score, deathCount, gameOver, gameRunning, difficulty;
 let slowMoActive, slowMoTimer;
 let shrinkActive, shrinkTimer;
 let shieldCount;
 let lastTime = 0;
 
-highScore = Number(localStorage.getItem("highscore") || 0);
 deathCount = Number(localStorage.getItem("deathCount") || 0);
 
-/* ✅ Username erzwingen */
+/* Ensure username */
 function ensureUsername() {
     if (!username) {
         usernameModal.style.display = "flex";
-
-        usernameSubmit.onclick = () => {
-            const value = usernameInput.value.trim();
-            if (!value) return;
-            username = value;
-            localStorage.setItem("username", username);
-            usernameModal.style.display = "none";
-        };
+        startScreen.style.pointerEvents = "none";
+    } else {
+        usernameModal.style.display = "none";
+        startScreen.style.pointerEvents = "auto";
+        loadMyHighScore();
     }
 }
 
-/* ✅ Spiel zurücksetzen */
-function resetGame() {
+/* Username confirm */
+usernameSubmit.addEventListener("click", () => {
+    const val = usernameInput.value.trim();
+    if (!val) return;
+    username = val;
+    localStorage.setItem("username", username);
+    usernameModal.style.display = "none";
+    startScreen.style.pointerEvents = "auto";
+    loadMyHighScore();
+});
+
+/* Reset / start state */
+function resetGameState() {
     player = {
         x: 180,
         y: 550,
@@ -393,27 +344,29 @@ function resetGame() {
     updatePowerupBar();
 }
 
-/* ✅ Start */
-function startGame() {
+/* Start button */
+startButton.addEventListener("click", () => {
     if (!username) {
         ensureUsername();
         return;
     }
     startScreen.style.display = "none";
-    resetGame();
+    resetGameState();
     lastTime = performance.now();
+    gameRunning = true;
     requestAnimationFrame(gameLoop);
-}
+});
 
-/* ✅ Restart */
-function restartGame() {
+/* Restart button */
+restartButton.addEventListener("click", () => {
     gameOverScreen.style.display = "none";
-    resetGame();
+    resetGameState();
     lastTime = performance.now();
+    gameRunning = true;
     requestAnimationFrame(gameLoop);
-}
+});
 
-/* ✅ Block spawnen */
+/* Spawn block */
 function spawnBlock() {
     const size = 40;
     const x = Math.random() * (canvas.width - size);
@@ -427,7 +380,7 @@ function spawnBlock() {
     });
 }
 
-/* ✅ Powerup spawnen */
+/* Spawn powerup */
 function spawnPowerup() {
     if (Math.random() > 0.0015) return;
 
@@ -446,7 +399,7 @@ function spawnPowerup() {
     });
 }
 
-/* ✅ Spieler zeichnen */
+/* Draw player */
 function drawPlayer() {
     ctx.fillStyle = "#4CAF50";
     ctx.shadowColor = "#4CAF50";
@@ -465,7 +418,7 @@ function drawPlayer() {
     ctx.shadowBlur = 0;
 }
 
-/* ✅ Blöcke zeichnen */
+/* Draw blocks */
 function drawBlocks() {
     ctx.fillStyle = "#E53935";
     ctx.shadowColor = "#E53935";
@@ -474,7 +427,7 @@ function drawBlocks() {
     ctx.shadowBlur = 0;
 }
 
-/* ✅ Powerups zeichnen */
+/* Draw powerups */
 function drawPowerups() {
     powerups.forEach(p => {
         if (p.type === "shield") ctx.fillStyle = "#00e5ff";
@@ -487,7 +440,7 @@ function drawPowerups() {
     });
 }
 
-/* ✅ Maussteuerung */
+/* Mouse control */
 canvas.addEventListener("mousemove", e => {
     const rect = canvas.getBoundingClientRect();
     const mouseX = e.clientX - rect.left;
@@ -498,21 +451,21 @@ canvas.addEventListener("mousemove", e => {
         player.x = canvas.width - player.width;
 });
 
-/* ✅ Blöcke updaten */
+/* Update blocks */
 function updateBlocks(delta) {
     const speedFactor = slowMoActive ? 0.4 : 1;
     blocks.forEach(b => b.y += b.speed * speedFactor * (delta / 16.67));
     blocks = blocks.filter(b => b.y < canvas.height + 60);
 }
 
-/* ✅ Powerups updaten */
+/* Update powerups */
 function updatePowerups(delta) {
     const speedFactor = slowMoActive ? 0.4 : 1;
     powerups.forEach(p => p.y += p.speed * speedFactor * (delta / 16.67));
     powerups = powerups.filter(p => p.y < canvas.height + 50);
 }
 
-/* ✅ Timer für Slow-Mo & Shrink */
+/* Powerup timers */
 function updatePowerupTimers() {
     if (slowMoActive) {
         slowMoTimer--;
@@ -525,7 +478,7 @@ function updatePowerupTimers() {
     }
 }
 
-/* ✅ Kollision */
+/* Collision detection */
 function detectCollision() {
     const hitbox = {
         x: player.x,
@@ -542,7 +495,7 @@ function detectCollision() {
         hitbox.height *= f;
     }
 
-    /* ✅ Powerups einsammeln */
+    /* Collect powerups */
     powerups = powerups.filter(p => {
         if (
             hitbox.x < p.x + p.width &&
@@ -560,7 +513,7 @@ function detectCollision() {
         return true;
     });
 
-    /* ✅ Block trifft Spieler */
+    /* Hit by block */
     for (let b of blocks) {
         if (
             hitbox.x < b.x + b.width &&
@@ -583,44 +536,46 @@ function detectCollision() {
     }
 }
 
-/* ✅ Powerup-Anzeige */
+/* Powerup bar */
 function updatePowerupBar() {
-    let shields = "🛡️".repeat(shieldCount);
+    const shields = "🛡️".repeat(shieldCount);
     powerupBar.textContent = `Shields: ${shields}`;
 }
 
-/* ✅ Score */
+/* Score */
 function updateScore(delta) {
     score += 0.3;
     difficulty += 0.00035 * (delta / 16.67);
-
-    if (score > highScore) {
-        highScore = score;
-        localStorage.setItem("highscore", highScore);
-    }
-
     updateUI();
 }
 
-/* ✅ UI */
+/* UI */
 function updateUI() {
     ui.textContent =
-        `Score: ${Math.floor(score)} | High Score: ${Math.floor(highScore)} | Deaths: ${deathCount} | Shields: ${shieldCount}`;
+        `Score: ${Math.floor(score)} | High Score: ${Math.floor(firebaseHighScore)} | Deaths: ${deathCount} | Shields: ${shieldCount}`;
 }
 
-<!-- ====== TEIL 3 / 3 — LEADERBOARD + GAME LOOP ====== -->
+/* Load Firebase high score */
+async function loadMyHighScore() {
+    if (!username) return;
+    const userKey = username.toLowerCase().replace(/[^a-z0-9_]/g, "_");
+    const userRef = ref(db, "leaderboard/" + userKey);
+    const snap = await get(userRef);
 
-/* ✅ Score an Firebase senden */
+    firebaseHighScore = snap.exists() ? snap.val().score : 0;
+    updateUI();
+}
+
+/* Save score */
 async function submitScoreToLeaderboard() {
     if (!username) return;
 
     const userKey = username.toLowerCase().replace(/[^a-z0-9_]/g, "_");
-
     const userRef = ref(db, "leaderboard/" + userKey);
-    const snapshot = await get(userRef);
     const currentScore = Math.floor(score);
 
-    if (!snapshot.exists() || currentScore > snapshot.val().score) {
+    if (currentScore > firebaseHighScore) {
+        firebaseHighScore = currentScore;
         await set(userRef, {
             username: username,
             score: currentScore
@@ -630,33 +585,37 @@ async function submitScoreToLeaderboard() {
     loadLeaderboard();
 }
 
-/* ✅ Leaderboard laden */
+/* Load leaderboard */
 async function loadLeaderboard() {
-    const leaderboardRef = query(
-        ref(db, "leaderboard"),
-        orderByChild("score"),
-        limitToLast(10)
-    );
+    try {
+        const leaderboardRef = query(
+            ref(db, "leaderboard"),
+            orderByChild("score"),
+            limitToLast(10)
+        );
 
-    const snap = await get(leaderboardRef);
-    const list = [];
-    snap.forEach(child => list.push(child.val()));
+        const snap = await get(leaderboardRef);
+        const list = [];
+        snap.forEach(child => list.push(child.val()));
+        list.sort((a, b) => b.score - a.score);
 
-    list.sort((a, b) => b.score - a.score);
-
-    leaderboardList.innerHTML = "";
-    if (list.length === 0) {
-        leaderboardList.innerHTML = "<li>Noch keine Scores</li>";
-    } else {
-        list.forEach((entry, idx) => {
-            const li = document.createElement("li");
-            li.textContent = `${idx + 1}. ${entry.username} — ${entry.score}`;
-            leaderboardList.appendChild(li);
-        });
+        leaderboardList.innerHTML = "";
+        if (list.length === 0) {
+            leaderboardList.innerHTML = "<li>No scores yet</li>";
+        } else {
+            list.forEach((entry, i) => {
+                const li = document.createElement("li");
+                li.textContent = `${i + 1}. ${entry.username} — ${entry.score}`;
+                leaderboardList.appendChild(li);
+            });
+        }
+    } catch (err) {
+        console.error(err);
+        leaderboardList.innerHTML = "<li>Error loading scores</li>";
     }
 }
 
-/* ✅ Game Over */
+/* Game over */
 function handleGameOverAndSubmitScore() {
     gameOver = true;
     gameRunning = false;
@@ -664,7 +623,7 @@ function handleGameOverAndSubmitScore() {
     submitScoreToLeaderboard();
 }
 
-/* ✅ Game Loop */
+/* Game loop */
 function gameLoop(timestamp) {
     if (!gameRunning) return;
 
@@ -679,7 +638,6 @@ function gameLoop(timestamp) {
     if (Math.random() < spawnChance) spawnBlock();
 
     spawnPowerup();
-
     updateBlocks(delta);
     updatePowerups(delta);
     updatePowerupTimers();
@@ -693,10 +651,9 @@ function gameLoop(timestamp) {
     requestAnimationFrame(gameLoop);
 }
 
-/* ✅ Initialisierung */
+/* Init */
 ensureUsername();
 loadLeaderboard();
-
 </script>
 
 </body>
