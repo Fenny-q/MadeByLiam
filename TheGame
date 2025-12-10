@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Dodge the Blocks</title>
+
+<style>
+    body {
+        background: #0e0e0e;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        height: 100vh;
+        margin: 0;
+        font-family: Arial, sans-serif;
+        color: #fff;
+    }
+
+    canvas {
+        background: #111;
+        border: 3px solid #444;
+        box-shadow: 0 0 20px #000 inset;
+    }
+
+    #score {
+        position: absolute;
+        top: 20px;
+        font-size: 24px;
+        font-weight: bold;
+    }
+</style>
+</head>
+<body>
+
+<div id="score">Score: 0</div>
+<canvas id="game" width="400" height="600"></canvas>
+
+<script>
+    const canvas = document.getElementById("game");
+    const ctx = canvas.getContext("2d");
+
+    const player = {
+        x: 180,
+        y: 550,
+        width: 40,
+        height: 40,
+        speed: 5,
+        dx: 0
+    };
+
+    let blocks = [];
+    let score = 0;
+    let gameOver = false;
+
+    function spawnBlock() {
+        const size = 40;
+        const x = Math.random() * (canvas.width - size);
+        blocks.push({
+            x,
+            y: -size,
+            width: size,
+            height: size,
+            speed: 3 + Math.random() * 2
+        });
+    }
+
+    function drawPlayer() {
+        ctx.fillStyle = "#4CAF50";
+        ctx.fillRect(player.x, player.y, player.width, player.height);
+    }
+
+    function drawBlocks() {
+        ctx.fillStyle = "#E53935";
+        blocks.forEach(b => ctx.fillRect(b.x, b.y, b.width, b.height));
+    }
+
+    function movePlayer() {
+        player.x += player.dx;
+        if (player.x < 0) player.x = 0;
+        if (player.x + player.width > canvas.width)
+            player.x = canvas.width - player.width;
+    }
+
+    function updateBlocks() {
+        blocks.forEach(b => b.y += b.speed);
+        blocks = blocks.filter(b => b.y < canvas.height + 50);
+    }
+
+    function detectCollision() {
+        for (let b of blocks) {
+            if (
+                player.x < b.x + b.width &&
+                player.x + player.width > b.x &&
+                player.y < b.y + b.height &&
+                player.y + player.height > b.y
+            ) {
+                gameOver = true;
+            }
+        }
+    }
+
+    function updateScore() {
+        score++;
+        document.getElementById("score").textContent = "Score: " + score;
+    }
+
+    function gameLoop() {
+        if (gameOver) {
+            ctx.fillStyle = "white";
+            ctx.font = "32px Arial";
+            ctx.fillText("Game Over!", 120, 300);
+            return;
+        }
+
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+        if (Math.random() < 0.03) spawnBlock();
+
+        movePlayer();
+        updateBlocks();
+        detectCollision();
+
+        drawPlayer();
+        drawBlocks();
+        updateScore();
+
+        requestAnimationFrame(gameLoop);
+    }
+
+    document.addEventListener("keydown", e => {
+        if (e.key === "ArrowLeft") player.dx = -player.speed;
+        if (e.key === "ArrowRight") player.dx = player.speed;
+    });
+
+    document.addEventListener("keyup", e => {
+        if (e.key === "ArrowLeft" || e.key === "ArrowRight") player.dx = 0;
+    });
+
+    gameLoop();
+</script>
+
+</body>
+</html>
