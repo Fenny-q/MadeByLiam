@@ -1,146 +1,703 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="de">
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>Dodge the Blocks</title>
- 
+<title>Dodge the Blocks — Online Leaderboard</title>
+
 <style>
     body {
-        background: #0e0e0e;
+        background: #0b0b0b;
         display: flex;
+        flex-direction: row;
         justify-content: center;
-        align-items: center;
+        align-items: flex-start;
         height: 100vh;
         margin: 0;
         font-family: Arial, sans-serif;
-        color: #fff;
+        color: #e0e0e0;
+        overflow: hidden;
     }
 
-    canvas {
+    /* Linke Sidebar */
+    #sidebar {
+        width: 230px;
+        padding: 20px;
+        font-size: 14px;
         background: #111;
-        border: 3px solid #444;
-        box-shadow: 0 0 20px #000 inset;
+        border-right: 2px solid #222;
+        box-shadow: 0 0 20px #000;
+        height: 100vh;
+        overflow-y: auto;
+        box-sizing: border-box;
+        border-radius: 0 10px 10px 0;
     }
 
-    #score {
+    #sidebar h3 {
+        margin-top: 0;
+        color: #4CAF50;
+        text-shadow: 0 0 8px #4CAF50;
+    }
+
+    #sidebar ul {
+        padding-left: 18px;
+        line-height: 1.5;
+    }
+
+    /* Rechte Leaderboard-Seite */
+    #leaderboard {
+        width: 230px;
+        padding: 20px;
+        font-size: 14px;
+        background: #111;
+        border-left: 2px solid #222;
+        box-shadow: 0 0 20px #000;
+        height: 100vh;
+        overflow-y: auto;
+        box-sizing: border-box;
+        border-radius: 10px 0 0 10px;
+    }
+
+    #leaderboard h3 {
+        margin-top: 0;
+        color: #ffeb3b;
+        text-shadow: 0 0 8px #ffeb3b;
+    }
+
+    #leaderboard ol {
+        padding-left: 18px;
+        line-height: 1.6;
+    }
+
+    /* Spielfeld */
+    canvas {
+        background: linear-gradient(#0f0f0f, #0a0a0a);
+        border: 3px solid #333;
+        border-radius: 10px;
+        box-shadow: 0 0 25px #000 inset, 0 0 20px #111;
+        touch-action: none;
+        margin-top: 60px;
+        margin-left: 20px;
+        margin-right: 20px;
+        pointer-events: auto;
+        z-index: 1;
+    }
+
+    /* HUD */
+    #ui, #powerupBar {
         position: absolute;
-        top: 20px;
-        font-size: 24px;
+        left: 240px;
+        right: 240px;
+        text-align: center;
+        pointer-events: none;
+        z-index: 5;
+    }
+
+    #ui {
+        top: 10px;
+        font-size: 20px;
         font-weight: bold;
+        color: #4CAF50;
+        text-shadow: 0 0 10px #4CAF50;
+    }
+
+    #powerupBar {
+        top: 40px;
+        font-size: 14px;
+        color: #ccc;
+    }
+
+    /* Start- und Game-Over-Screens */
+    #startScreen, #gameOverScreen {
+        position: absolute;
+        top: 35%;
+        left: 240px;
+        right: 240px;
+        text-align: center;
+        font-size: 28px;
+        font-weight: bold;
+        pointer-events: auto;
+        z-index: 10;
+        color: #fff;
+        text-shadow: 0 0 10px #000;
+    }
+
+    button {
+        margin-top: 20px;
+        padding: 10px 22px;
+        font-size: 18px;
+        border: none;
+        border-radius: 8px;
+        cursor: pointer;
+        background: #4CAF50;
+        color: white;
+        transition: 0.2s;
+        box-shadow: 0 0 10px #4CAF50;
+    }
+
+    button:hover {
+        background: #45a049;
+        box-shadow: 0 0 15px #45a049;
+    }
+
+    /* Username-Modal */
+    #usernameModal {
+        position: fixed;
+        inset: 0;
+        background: rgba(0, 0, 0, 0.7);
+        display: none; /* wird automatisch aktiviert */
+        align-items: center;
+        justify-content: center;
+        z-index: 9999; /* FIX: blockiert Start nicht mehr */
+    }
+
+    #usernameBox {
+        background: #111;
+        padding: 20px 25px;
+        border-radius: 10px;
+        border: 1px solid #333;
+        box-shadow: 0 0 20px #000;
+        max-width: 320px;
+        text-align: center;
+    }
+
+    #usernameBox h2 {
+        margin-top: 0;
+        color: #4CAF50;
+    }
+
+    #usernameInput {
+        width: 100%;
+        padding: 8px;
+        margin-top: 10px;
+        border-radius: 6px;
+        border: 1px solid #333;
+        background: #222;
+        color: #fff;
+        font-size: 14px;
+        box-sizing: border-box;
+    }
+
+    #usernameWarning {
+        margin-top: 8px;
+        font-size: 11px;
+        color: #ff6e6e;
     }
 </style>
 </head>
 <body>
 
-<div id="score">Score: 0</div>
+<!-- Linke Sidebar -->
+<div id="sidebar">
+    <h3>How to Play</h3>
+    <ul>
+        <li>Maus: Links/Rechts bewegen</li>
+        <li>← / A: Links</li>
+        <li>→ / D: Rechts</li>
+        <li>R oder Leertaste: Neustart</li>
+    </ul>
+</div>
+
+<!-- HUD -->
+<div id="ui">Score: 0 | High Score: 0 | Deaths: 0 | Shields: 0</div>
+<div id="powerupBar"></div>
+
+<!-- Startscreen -->
+<div id="startScreen">
+    <div>DODGE THE BLOCKS</div>
+    <button onclick="startGame()">Start</button>
+</div>
+
+<!-- Game Over -->
+<div id="gameOverScreen" style="display:none;">
+    <div>GAME OVER</div>
+    <button onclick="restartGame()">Restart</button>
+</div>
+
+<!-- Spielfeld -->
 <canvas id="game" width="400" height="600"></canvas>
 
-<script>
-    const canvas = document.getElementById("game");
-    const ctx = canvas.getContext("2d");
+<!-- Leaderboard rechts -->
+<div id="leaderboard">
+    <h3>Leaderboard</h3>
+    <ol id="leaderboardList">
+        <li>Lade Scores...</li>
+    </ol>
+</div>
 
-    const player = {
+<!-- Username-Modal -->
+<div id="usernameModal">
+    <div id="usernameBox">
+        <h2>Benutzername wählen</h2>
+        <input id="usernameInput" maxlength="16" placeholder="Username eingeben" />
+        <div id="usernameWarning">
+            Du kannst deinen Namen nur einmal wählen. Er kann später nicht geändert werden.
+        </div>
+        <button id="usernameSubmit">Bestätigen</button>
+    </div>
+</div>
+
+<!-- Firebase + Game Script -->
+<script type="module">
+
+/* ✅ Firebase Imports */
+import { initializeApp } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-app.js";
+import {
+  getDatabase,
+  ref,
+  set,
+  get,
+  query,
+  orderByChild,
+  limitToLast
+} from "https://www.gstatic.com/firebasejs/9.23.0/firebase-database.js";
+
+/* ✅ Deine Firebase Config */
+const firebaseConfig = {
+  apiKey: "AIzaSyBJU18Mb0PJuvEEElrDszbe9zQWqy27Rlo",
+  authDomain: "dodge-the-blocks-aa595.firebaseapp.com",
+  databaseURL: "https://dodge-the-blocks-aa595-default-rtdb.europe-west1.firebasedatabase.app/",
+  projectId: "dodge-the-blocks-aa595",
+  storageBucket: "dodge-the-blocks-aa595.firebasestorage.app",
+  messagingSenderId: "70945038524",
+  appId: "1:70945038524:web:ab132d3e63f394787530b9"
+};
+
+const app = initializeApp(firebaseConfig);
+const db = getDatabase(app);
+
+/* ✅ Variablen */
+let username = localStorage.getItem("username") || null;
+let player, blocks, powerups;
+let score, highScore, deathCount, gameOver, gameRunning, difficulty;
+let slowMoActive, slowMoTimer;
+let shrinkActive, shrinkTimer;
+let shieldCount;
+let lastTime = 0;
+
+highScore = Number(localStorage.getItem("highscore") || 0);
+deathCount = Number(localStorage.getItem("deathCount") || 0);
+
+/* ✅ Username erzwingen */
+function ensureUsername() {
+    if (!username) {
+        usernameModal.style.display = "flex";
+
+        usernameSubmit.onclick = () => {
+            const value = usernameInput.value.trim();
+            if (!value) return;
+            username = value;
+            localStorage.setItem("username", username);
+            usernameModal.style.display = "none";
+        };
+    }
+}
+
+<!-- ====== TEIL 2 / 3 — GAMEPLAY CODE ====== -->
+
+<script type="module">
+
+/* ✅ Firebase Imports */
+import { initializeApp } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-app.js";
+import {
+  getDatabase,
+  ref,
+  set,
+  get,
+  query,
+  orderByChild,
+  limitToLast
+} from "https://www.gstatic.com/firebasejs/9.23.0/firebase-database.js";
+
+/* ✅ Deine Firebase Config */
+const firebaseConfig = {
+  apiKey: "AIzaSyBJU18Mb0PJuvEEElrDszbe9zQWqy27Rlo",
+  authDomain: "dodge-the-blocks-aa595.firebaseapp.com",
+  databaseURL: "https://dodge-the-blocks-aa595-default-rtdb.europe-west1.firebasedatabase.app/",
+  projectId: "dodge-the-blocks-aa595",
+  storageBucket: "dodge-the-blocks-aa595.firebasestorage.app",
+  messagingSenderId: "70945038524",
+  appId: "1:70945038524:web:ab132d3e63f394787530b9"
+};
+
+const app = initializeApp(firebaseConfig);
+const db = getDatabase(app);
+
+/* ✅ Variablen */
+let username = localStorage.getItem("username") || null;
+
+const canvas = document.getElementById("game");
+const ctx = canvas.getContext("2d");
+
+const ui = document.getElementById("ui");
+const powerupBar = document.getElementById("powerupBar");
+const startScreen = document.getElementById("startScreen");
+const gameOverScreen = document.getElementById("gameOverScreen");
+const leaderboardList = document.getElementById("leaderboardList");
+
+const usernameModal = document.getElementById("usernameModal");
+const usernameInput = document.getElementById("usernameInput");
+const usernameSubmit = document.getElementById("usernameSubmit");
+
+let player, blocks, powerups;
+let score, highScore, deathCount, gameOver, gameRunning, difficulty;
+let slowMoActive, slowMoTimer;
+let shrinkActive, shrinkTimer;
+let shieldCount;
+let lastTime = 0;
+
+highScore = Number(localStorage.getItem("highscore") || 0);
+deathCount = Number(localStorage.getItem("deathCount") || 0);
+
+/* ✅ Username erzwingen */
+function ensureUsername() {
+    if (!username) {
+        usernameModal.style.display = "flex";
+
+        usernameSubmit.onclick = () => {
+            const value = usernameInput.value.trim();
+            if (!value) return;
+            username = value;
+            localStorage.setItem("username", username);
+            usernameModal.style.display = "none";
+        };
+    }
+}
+
+/* ✅ Spiel zurücksetzen */
+function resetGame() {
+    player = {
         x: 180,
         y: 550,
-        width: 40,
-        height: 40,
-        speed: 5,
-        dx: 0
+        width: 32,
+        height: 32
     };
 
-    let blocks = [];
-    let score = 0;
-    let gameOver = false;
+    blocks = [];
+    powerups = [];
 
-    function spawnBlock() {
-        const size = 40;
-        const x = Math.random() * (canvas.width - size);
-        blocks.push({
-            x,
-            y: -size,
-            width: size,
-            height: size,
-            speed: 3 + Math.random() * 2
-        });
+    score = 0;
+    difficulty = 0;
+    gameOver = false;
+    gameRunning = true;
+
+    slowMoActive = false;
+    slowMoTimer = 0;
+
+    shrinkActive = false;
+    shrinkTimer = 0;
+
+    shieldCount = 0;
+
+    updateUI();
+    updatePowerupBar();
+}
+
+/* ✅ Start */
+function startGame() {
+    if (!username) {
+        ensureUsername();
+        return;
     }
+    startScreen.style.display = "none";
+    resetGame();
+    lastTime = performance.now();
+    requestAnimationFrame(gameLoop);
+}
 
-    function drawPlayer() {
-        ctx.fillStyle = "#4CAF50";
+/* ✅ Restart */
+function restartGame() {
+    gameOverScreen.style.display = "none";
+    resetGame();
+    lastTime = performance.now();
+    requestAnimationFrame(gameLoop);
+}
+
+/* ✅ Block spawnen */
+function spawnBlock() {
+    const size = 40;
+    const x = Math.random() * (canvas.width - size);
+
+    blocks.push({
+        x,
+        y: -size,
+        width: size,
+        height: size,
+        speed: 1.1 + difficulty * 1.2
+    });
+}
+
+/* ✅ Powerup spawnen */
+function spawnPowerup() {
+    if (Math.random() > 0.0015) return;
+
+    const types = ["shield", "slowmo", "shrink"];
+    const type = types[Math.floor(Math.random() * types.length)];
+    const size = 24;
+    const x = Math.random() * (canvas.width - size);
+
+    powerups.push({
+        x,
+        y: -size,
+        width: size,
+        height: size,
+        speed: 1 + difficulty * 0.6,
+        type
+    });
+}
+
+/* ✅ Spieler zeichnen */
+function drawPlayer() {
+    ctx.fillStyle = "#4CAF50";
+    ctx.shadowColor = "#4CAF50";
+    ctx.shadowBlur = 15;
+
+    if (shrinkActive) {
+        ctx.save();
+        ctx.translate(player.x + player.width / 2, player.y + player.height / 2);
+        ctx.scale(0.7, 0.7);
+        ctx.fillRect(-player.width / 2, -player.height / 2, player.width, player.height);
+        ctx.restore();
+    } else {
         ctx.fillRect(player.x, player.y, player.width, player.height);
     }
 
-    function drawBlocks() {
-        ctx.fillStyle = "#E53935";
-        blocks.forEach(b => ctx.fillRect(b.x, b.y, b.width, b.height));
+    ctx.shadowBlur = 0;
+}
+
+/* ✅ Blöcke zeichnen */
+function drawBlocks() {
+    ctx.fillStyle = "#E53935";
+    ctx.shadowColor = "#E53935";
+    ctx.shadowBlur = 18;
+    blocks.forEach(b => ctx.fillRect(b.x, b.y, b.width, b.height));
+    ctx.shadowBlur = 0;
+}
+
+/* ✅ Powerups zeichnen */
+function drawPowerups() {
+    powerups.forEach(p => {
+        if (p.type === "shield") ctx.fillStyle = "#00e5ff";
+        else if (p.type === "slowmo") ctx.fillStyle = "#7e57c2";
+        else ctx.fillStyle = "#ffeb3b";
+
+        ctx.beginPath();
+        ctx.arc(p.x + p.width / 2, p.y + p.height / 2, p.width / 2, 0, Math.PI * 2);
+        ctx.fill();
+    });
+}
+
+/* ✅ Maussteuerung */
+canvas.addEventListener("mousemove", e => {
+    const rect = canvas.getBoundingClientRect();
+    const mouseX = e.clientX - rect.left;
+    if (!player) return;
+    player.x = mouseX - player.width / 2;
+    if (player.x < 0) player.x = 0;
+    if (player.x + player.width > canvas.width)
+        player.x = canvas.width - player.width;
+});
+
+/* ✅ Blöcke updaten */
+function updateBlocks(delta) {
+    const speedFactor = slowMoActive ? 0.4 : 1;
+    blocks.forEach(b => b.y += b.speed * speedFactor * (delta / 16.67));
+    blocks = blocks.filter(b => b.y < canvas.height + 60);
+}
+
+/* ✅ Powerups updaten */
+function updatePowerups(delta) {
+    const speedFactor = slowMoActive ? 0.4 : 1;
+    powerups.forEach(p => p.y += p.speed * speedFactor * (delta / 16.67));
+    powerups = powerups.filter(p => p.y < canvas.height + 50);
+}
+
+/* ✅ Timer für Slow-Mo & Shrink */
+function updatePowerupTimers() {
+    if (slowMoActive) {
+        slowMoTimer--;
+        if (slowMoTimer <= 0) slowMoActive = false;
     }
 
-    function movePlayer() {
-        player.x += player.dx;
-        if (player.x < 0) player.x = 0;
-        if (player.x + player.width > canvas.width)
-            player.x = canvas.width - player.width;
+    if (shrinkActive) {
+        shrinkTimer--;
+        if (shrinkTimer <= 0) shrinkActive = false;
+    }
+}
+
+/* ✅ Kollision */
+function detectCollision() {
+    const hitbox = {
+        x: player.x,
+        y: player.y,
+        width: player.width,
+        height: player.height
+    };
+
+    if (shrinkActive) {
+        const f = 0.7;
+        hitbox.x += (player.width * (1 - f)) / 2;
+        hitbox.y += (player.height * (1 - f)) / 2;
+        hitbox.width *= f;
+        hitbox.height *= f;
     }
 
-    function updateBlocks() {
-        blocks.forEach(b => b.y += b.speed);
-        blocks = blocks.filter(b => b.y < canvas.height + 50);
-    }
+    /* ✅ Powerups einsammeln */
+    powerups = powerups.filter(p => {
+        if (
+            hitbox.x < p.x + p.width &&
+            hitbox.x + hitbox.width > p.x &&
+            hitbox.y < p.y + p.height &&
+            hitbox.y + hitbox.height > p.y
+        ) {
+            if (p.type === "shield") shieldCount = Math.min(3, shieldCount + 1);
+            if (p.type === "slowmo") { slowMoActive = true; slowMoTimer = 180; }
+            if (p.type === "shrink") { shrinkActive = true; shrinkTimer = 300; }
 
-    function detectCollision() {
-        for (let b of blocks) {
-            if (
-                player.x < b.x + b.width &&
-                player.x + player.width > b.x &&
-                player.y < b.y + b.height &&
-                player.y + player.height > b.y
-            ) {
-                gameOver = true;
+            updatePowerupBar();
+            return false;
+        }
+        return true;
+    });
+
+    /* ✅ Block trifft Spieler */
+    for (let b of blocks) {
+        if (
+            hitbox.x < b.x + b.width &&
+            hitbox.x + hitbox.width > b.x &&
+            hitbox.y < b.y + b.height &&
+            hitbox.y + hitbox.height > b.y
+        ) {
+            if (shieldCount > 0) {
+                shieldCount--;
+                updatePowerupBar();
+                blocks = blocks.filter(x => x !== b);
+                return;
+            } else {
+                deathCount++;
+                localStorage.setItem("deathCount", deathCount);
+                handleGameOverAndSubmitScore();
+                return;
             }
         }
     }
+}
 
-    function updateScore() {
-        score++;
-        document.getElementById("score").textContent = "Score: " + score;
+/* ✅ Powerup-Anzeige */
+function updatePowerupBar() {
+    let shields = "🛡️".repeat(shieldCount);
+    powerupBar.textContent = `Shields: ${shields}`;
+}
+
+/* ✅ Score */
+function updateScore(delta) {
+    score += 0.3;
+    difficulty += 0.00035 * (delta / 16.67);
+
+    if (score > highScore) {
+        highScore = score;
+        localStorage.setItem("highscore", highScore);
     }
 
-    function gameLoop() {
-        if (gameOver) {
-            ctx.fillStyle = "white";
-            ctx.font = "32px Arial";
-            ctx.fillText("Game Over!", 120, 300);
-            return;
-        }
+    updateUI();
+}
 
-        ctx.clearRect(0, 0, canvas.width, canvas.height);
+/* ✅ UI */
+function updateUI() {
+    ui.textContent =
+        `Score: ${Math.floor(score)} | High Score: ${Math.floor(highScore)} | Deaths: ${deathCount} | Shields: ${shieldCount}`;
+}
 
-        if (Math.random() < 0.03) spawnBlock();
+<!-- ====== TEIL 3 / 3 — LEADERBOARD + GAME LOOP ====== -->
 
-        movePlayer();
-        updateBlocks();
-        detectCollision();
+/* ✅ Score an Firebase senden */
+async function submitScoreToLeaderboard() {
+    if (!username) return;
 
-        drawPlayer();
-        drawBlocks();
-        updateScore();
+    const userKey = username.toLowerCase().replace(/[^a-z0-9_]/g, "_");
 
-        requestAnimationFrame(gameLoop);
+    const userRef = ref(db, "leaderboard/" + userKey);
+    const snapshot = await get(userRef);
+    const currentScore = Math.floor(score);
+
+    if (!snapshot.exists() || currentScore > snapshot.val().score) {
+        await set(userRef, {
+            username: username,
+            score: currentScore
+        });
     }
 
-    document.addEventListener("keydown", e => {
-        if (e.key === "ArrowLeft") player.dx = -player.speed;
-        if (e.key === "ArrowRight") player.dx = player.speed;
-    });
+    loadLeaderboard();
+}
 
-    document.addEventListener("keyup", e => {
-        if (e.key === "ArrowLeft" || e.key === "ArrowRight") player.dx = 0;
-    });
+/* ✅ Leaderboard laden */
+async function loadLeaderboard() {
+    const leaderboardRef = query(
+        ref(db, "leaderboard"),
+        orderByChild("score"),
+        limitToLast(10)
+    );
 
-    gameLoop();
+    const snap = await get(leaderboardRef);
+    const list = [];
+    snap.forEach(child => list.push(child.val()));
+
+    list.sort((a, b) => b.score - a.score);
+
+    leaderboardList.innerHTML = "";
+    if (list.length === 0) {
+        leaderboardList.innerHTML = "<li>Noch keine Scores</li>";
+    } else {
+        list.forEach((entry, idx) => {
+            const li = document.createElement("li");
+            li.textContent = `${idx + 1}. ${entry.username} — ${entry.score}`;
+            leaderboardList.appendChild(li);
+        });
+    }
+}
+
+/* ✅ Game Over */
+function handleGameOverAndSubmitScore() {
+    gameOver = true;
+    gameRunning = false;
+    gameOverScreen.style.display = "block";
+    submitScoreToLeaderboard();
+}
+
+/* ✅ Game Loop */
+function gameLoop(timestamp) {
+    if (!gameRunning) return;
+
+    const delta = timestamp - lastTime;
+    lastTime = timestamp;
+
+    if (gameOver) return;
+
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+    const spawnChance = 0.005 + difficulty * 0.015;
+    if (Math.random() < spawnChance) spawnBlock();
+
+    spawnPowerup();
+
+    updateBlocks(delta);
+    updatePowerups(delta);
+    updatePowerupTimers();
+    detectCollision();
+    updateScore(delta);
+
+    drawBlocks();
+    drawPowerups();
+    drawPlayer();
+
+    requestAnimationFrame(gameLoop);
+}
+
+/* ✅ Initialisierung */
+ensureUsername();
+loadLeaderboard();
+
 </script>
 
 </body>
 </html>
-
-
